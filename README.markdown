@@ -1,10 +1,19 @@
+THIS HAS NOT BEEN UPDATED FOR THE NEW JASMINE-AJAX 2.0 RELEASE. HERE BE DRAGONS.
+
+This branch is now version 2.0, if you need jasmine-ajax for Jasmine 1.3.x please grab the last release from that tag.
+
+
+
 jasmine-ajax - Faking Ajax responses in your Jasmine suite.
 ===
-jasmine-ajax is a library that lets you define a set of fake responses for Ajax requests made by your application, specify per spec which response should be used, and keep track of the Ajax requests you make so you can make assertions about the results.
+jasmine-ajax is a library that lets you define a set of fake responses for Ajax
+requests made by your application, specify per spec which response should be
+used, and keep track of the Ajax requests you make so you can make assertions
+about the results.
 
 Libraries Supported
 ---
-jasmine-ajax is currently compatible with jQuery. Support for other libraries planned.
+jasmine-ajax is currently compatible with any library that uses XMLHttpRequest. Tested with jQuery and Zepto.
 
 Installing
 ---
@@ -16,6 +25,7 @@ Using the library in your Jasmine specs consists of four parts:
 
 1. Defining test responses
 2. Installing the mock
+3. Triggering the ajax request code
 3. Defining the response for each request
 4. Inspecting Ajax requests and setting expectations on them
 
@@ -99,7 +109,19 @@ Install the mock using `jasmine.Ajax.useMock()`:
       ...
 After this, all Ajax requests will be captured by jasmine-ajax. If you want to do things like load fixtures, do it before you install the mock (see below).
 
-### 3. Set responses ###
+### 3. Trigger ajax request code ###
+Before you can specify that a request uses your test response, you must have a handle to the request itself.  This means that the request is made first by the code under test and then you will set your test response (see next step).
+
+        foursquare.search('40.019461,-105.273296', {
+          onSuccess: onSuccess,
+          onFailure: onFailure
+        });
+
+        request = mostRecentAjaxRequest();
+
+The onreadystatechange event isn't fired to complete the ajax request until you set the response in the next step.
+
+### 4. Set responses ###
 Now that you've defined some test responses and installed the mock, you need to tell jasmine-ajax which response to use for a given spec. If you want to use your success response for a set of related success specs, you might use:
 
     describe("on success", function() {
@@ -109,7 +131,7 @@ Now that you've defined some test responses and installed the mock, you need to 
 
 Now for all the specs in this example group, whenever an Ajax response is sent, it will use the `TestResponses.search.success` object defined in your test responses to build the XMLHttpRequest object.
 
-### 4. Inspect Ajax requests ###
+### 5. Inspect Ajax requests ###
 Putting it all together, you can install the mock, pass some spies as callbacks to your search object, and make expectations about the expected behavior.
 
     describe("FoursquareVenueSearch", function() {
@@ -130,6 +152,9 @@ Putting it all together, you can install the mock, pass some spies as callbacks 
         });
 
         request = mostRecentAjaxRequest();
+        expect(request.url).toBe('venues/search');
+        expect(request.method).toBe('POST');
+        expect(request.data()).toEqual({latLng: ['40.019461, -105.273296']});
       });
 
       describe("on success", function() {
@@ -165,4 +190,4 @@ Jasmine
 ------------
 http://github.com/pivotal/jasmine
 
-Copyright (c) 2011 Pivotal Labs. This software is licensed under the MIT License.
+Copyright (c) 2013 Pivotal Labs. This software is licensed under the MIT License.
