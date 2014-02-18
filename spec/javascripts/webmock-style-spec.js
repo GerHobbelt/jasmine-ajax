@@ -1,7 +1,8 @@
 describe("Webmock style mocking", function() {
   var successSpy, errorSpy, response, fakeGlobal, mockAjax;
 
-  var sendRequest = function(fakeGlobal) {
+  var sendRequest = function(fakeGlobal, url) {
+    url = url || "http://example.com/someApi"
     var xhr = new fakeGlobal.XMLHttpRequest();
     xhr.onreadystatechange = function(arguments) {
       if (this.readyState == this.DONE) {
@@ -10,7 +11,7 @@ describe("Webmock style mocking", function() {
       }
     };
 
-    xhr.open("GET", "http://example.com/someApi");
+    xhr.open("GET", url);
     xhr.send();
   };
 
@@ -61,6 +62,65 @@ describe("Webmock style mocking", function() {
 
     it("should allow the latest stub to win", function() {
       expect(response.responseText).toEqual('no');
+    });
+  });
+
+  describe("with a query string", function() {
+    beforeEach(function() {
+      mockAjax.stubRequest("http://example.com/someApi?foo=bar&baz=quux").andReturn({responseText: "greetings", status: 422});
+    });
+
+    it("should match the query string in any order", function() {
+      sendRequest(fakeGlobal, "http://example.com/someApi?baz=quux&foo=bar");
+      expect(response.status).toEqual(422);
+      expect(response.responseText).toEqual('greetings');
+    });
+  });
+
+  describe("stubbing with form data", function() {
+    beforeEach(function() {
+      mockAjax.stubRequest("http://example.com/someApi", 'foo=bar&baz=quux').andReturn({responseText: "form", status: 201});
+    });
+
+    var postRequest = function(data) {
+      var xhr = new fakeGlobal.XMLHttpRequest();
+      xhr.onreadystatechange = function(arguments) {
+        if (this.readyState == this.DONE) {
+          response = this;
+          successSpy();
+        }
+      };
+
+      xhr.open("POST", "http://example.com/someApi");
+      xhr.send(data);
+    };
+
+    it("uses the form data stub when the data matches", function() {
+      postRequest('foo=bar&baz=quux');
+
+      expect(response.status).toEqual(201);
+      expect(response.responseText).toEqual('form');
+    });
+
+    it("matches data params in any order", function() {
+      postRequest('baz=quux&foo=bar');
+
+      expect(response.status).toEqual(201);
+      expect(response.responseText).toEqual('form');
+    });
+
+    it("falls back to the stub without data specified if the data doesn't match", function() {
+      postRequest('foo=bar');
+
+      expect(response.status).toEqual(200);
+      expect(response.responseText).toEqual('hi!');
+    });
+
+    it("uses the stub without data specified if no data is passed", function() {
+      postRequest();
+
+      expect(response.status).toEqual(200);
+      expect(response.responseText).toEqual('hi!');
     });
   });
 });

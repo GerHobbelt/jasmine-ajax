@@ -1,43 +1,83 @@
 describe("FakeXMLHttpRequest", function() {
   var xhr;
+  var xhr2;
   beforeEach(function() {
     var realXMLHttpRequest = jasmine.createSpy('realRequest'),
         fakeGlobal = {XMLHttpRequest: realXMLHttpRequest},
         mockAjax = new MockAjax(fakeGlobal);
     mockAjax.install();
     xhr = new fakeGlobal.XMLHttpRequest();
+    xhr2 = new fakeGlobal.XMLHttpRequest();
   });
 
   it("should have an initial readyState of 0 (uninitialized)", function() {
     expect(xhr.readyState).toEqual(0);
   });
 
+  describe("when setting request headers", function() {
+    beforeEach(function() {
+      xhr.setRequestHeader('X-Header-1', 'one');
+    });
+
+    it("should make the request headers available", function() {
+      expect(Object.keys(xhr.requestHeaders).length).toEqual(1);
+      expect(xhr.requestHeaders['X-Header-1']).toEqual('one');
+    });
+
+    describe("when setting headers on another xhr object", function() {
+      beforeEach(function() {
+        xhr2.setRequestHeader('X-Header-2', 'two');
+      });
+
+      it("should make the only its request headers available", function() {
+        expect(Object.keys(xhr2.requestHeaders).length).toEqual(1);
+        expect(xhr2.requestHeaders['X-Header-2']).toEqual('two');
+      });
+
+      it("should not modify any other xhr objects", function() {
+        expect(Object.keys(xhr.requestHeaders).length).toEqual(1);
+        expect(xhr.requestHeaders['X-Header-1']).toEqual('one');
+      });
+    });
+  });
+
   describe("when opened", function() {
     beforeEach(function() {
+      spyOn(xhr, 'onreadystatechange');
       xhr.open("GET", "http://example.com");
     });
+
     it("should have a readyState of 1 (open)", function() {
       expect(xhr.readyState).toEqual(1);
+      expect(xhr.onreadystatechange).toHaveBeenCalled();
     });
 
     describe("when sent", function() {
       it("should have a readyState of 2 (sent)", function() {
+        xhr.onreadystatechange.calls.reset();
         xhr.send(null);
         expect(xhr.readyState).toEqual(2);
+        expect(xhr.onreadystatechange).toHaveBeenCalled();
       });
     });
 
     describe("when a response comes in", function() {
       it("should have a readyState of 4 (loaded)", function() {
+        xhr.onreadystatechange.calls.reset();
         xhr.response({status: 200});
         expect(xhr.readyState).toEqual(4);
+        expect(xhr.onreadystatechange).toHaveBeenCalled();
       });
     });
 
     describe("when aborted", function() {
       it("should have a readyState of 0 (uninitialized)", function() {
+        xhr.onreadystatechange.calls.reset();
         xhr.abort();
         expect(xhr.readyState).toEqual(0);
+        expect(xhr.onreadystatechange).toHaveBeenCalled();
+        expect(xhr.status).toEqual(0);
+        expect(xhr.statusText).toEqual("abort");
       });
     });
   });

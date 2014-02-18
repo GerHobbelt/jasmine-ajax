@@ -2,9 +2,9 @@
 
 THIS HAS NOT BEEN UPDATED FOR THE NEW JASMINE-AJAX 2.0 RELEASE. HERE BE DRAGONS.
 
+If you are using the updated version of this library, there is some documentation located at [jasmine.github.io](http://jasmine.github.io/2.0/ajax.html) that is more up-to-date.
+
 This branch is now version 2.0, if you need jasmine-ajax for Jasmine 1.3.x please grab the last release from that tag.
-
-
 
 jasmine-ajax - Faking Ajax responses in your Jasmine suite.
 ===
