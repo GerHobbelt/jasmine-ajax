@@ -1,3 +1,5 @@
+/*global sharedAjaxResponseBehaviorForZepto_Failure: true, sharedAjaxResponseBehaviorForZepto_Success: true */
+
 describe("Jasmine Mock Ajax (for toplevel)", function() {
   var request, anotherRequest, response;
   var success, error, complete;
@@ -7,8 +9,12 @@ describe("Jasmine Mock Ajax (for toplevel)", function() {
 
   beforeEach(function() {
     var fakeXMLHttpRequest = jasmine.createSpy('realFakeXMLHttpRequest');
-    fakeGlobal = {XMLHttpRequest: fakeXMLHttpRequest};
-    mockAjax = new MockAjax(fakeGlobal);
+    fakeGlobal = {
+      XMLHttpRequest: fakeXMLHttpRequest,
+      DOMParser: window.DOMParser,
+      ActiveXObject: window.ActiveXObject
+    };
+    mockAjax = new window.MockAjax(fakeGlobal);
     mockAjax.install();
 
     success = jasmine.createSpy("onSuccess");
@@ -16,9 +22,9 @@ describe("Jasmine Mock Ajax (for toplevel)", function() {
     complete = jasmine.createSpy("onComplete");
 
     onreadystatechange = function() {
-      if (this.readyState == this.DONE) {
-        if (this.status == 200) {
-          if (this.responseHeaders['Content-type'] === 'application/json') {
+      if (this.readyState === (this.DONE || 4)) { // IE 8 doesn't support DONE
+        if (this.status === 200) {
+          if (this.getResponseHeader('Content-Type') === 'application/json') {
             this.response = JSON.parse(this.responseText);
           } else {
             this.response = this.responseText;
@@ -121,59 +127,6 @@ describe("Jasmine Mock Ajax (for toplevel)", function() {
         expect(mockAjax.requests.mostRecent()).toBeUndefined();
       });
     });
-
-    describe("filter", function() {
-      describe("when there are no matching requests", function() {
-        it("returns an empty array", function() {
-          expect(mockAjax.requests.filter('/philharmonic')).toEqual([]);
-        });
-      });
-
-      describe("when there is one matching request", function() {
-        describe("returns an array with the single matching request", function() {
-          it("matches by exact URL", function() {
-            expect(mockAjax.requests.filter('example.com/someApi').length).toEqual(1);
-          });
-
-          it("matches by regexp", function() {
-            expect(mockAjax.requests.filter(/some.pi/).length).toEqual(1);
-          });
-
-          it("matches by funcarg", function() {
-            expect(mockAjax.requests.filter(function(request) {
-              return request.url == "example.com/someApi";
-            }).length).toEqual(1);
-          });
-        });
-      });
-
-      describe("when there is a non-matching request", function() {
-        beforeEach(function() {
-          client = new fakeGlobal.XMLHttpRequest();
-          client.onreadystatechange = onreadystatechange;
-          client.open("GET", "example.com/someOtherApi");
-          client.send();
-        });
-
-        it("returns just the matching requests", function() {
-          expect(mockAjax.requests.filter('example.com/someApi').length).toEqual(1);
-        });
-          
-        it("matches by exact URL", function() {
-          expect(mockAjax.requests.filter('example.com/someApi').length).toEqual(1);
-        });
-
-        it("matches by regexp", function() {
-          expect(mockAjax.requests.filter(/some.pi/).length).toEqual(1);
-        });
-
-        it("matches by funcarg", function() {
-          expect(mockAjax.requests.filter(function(request) {
-            return request.url == "example.com/someApi";
-          }).length).toEqual(1);
-        });
-      });
-    });
   });
 
   describe("when simulating a response with request.response", function () {
@@ -182,12 +135,12 @@ describe("Jasmine Mock Ajax (for toplevel)", function() {
         client = new fakeGlobal.XMLHttpRequest();
         client.onreadystatechange = onreadystatechange;
         client.open("GET", "example.com/someApi");
-        client.setRequestHeader("Content-Type", "text/plain")
+        client.setRequestHeader("Content-Type", "text/plain");
         client.send();
 
         request = mockAjax.requests.mostRecent();
         response = {status: 200, statusText: "OK", contentType: "text/html", responseText: "OK!"};
-        request.response(response);
+        request.respondWith(response);
 
         sharedContext.responseCallback = success;
         sharedContext.status = response.status;
@@ -216,13 +169,13 @@ describe("Jasmine Mock Ajax (for toplevel)", function() {
         client = new fakeGlobal.XMLHttpRequest();
         client.onreadystatechange = onreadystatechange;
         client.open("GET", "example.com/someApi");
-        client.setRequestHeader("Content-Type", "application/json")
+        client.setRequestHeader("Content-Type", "application/json");
         client.send();
 
         request = mockAjax.requests.mostRecent();
         var responseObject = {status: 200, statusText: "OK", contentType: "application/json", responseText: '{"foo":"bar"}'};
 
-        request.response(responseObject);
+        request.respondWith(responseObject);
 
         sharedContext.responseCallback = success;
         sharedContext.status = responseObject.status;
@@ -252,17 +205,77 @@ describe("Jasmine Mock Ajax (for toplevel)", function() {
       sharedAjaxResponseBehaviorForZepto_Success(sharedContext);
     });
 
+    describe("response with unique header names using an object", function () {
+      beforeEach(function () {
+        client = new fakeGlobal.XMLHttpRequest();
+        client.onreadystatechange = onreadystatechange;
+        client.open("GET", "example.com");
+        client.send();
+
+        request = mockAjax.requests.mostRecent();
+        var responseObject = {status: 200, statusText: "OK", responseText: '["foo"]', responseHeaders: {
+          'X-Header1': 'header 1 value',
+          'X-Header2': 'header 2 value',
+          'X-Header3': 'header 3 value'
+        }};
+        request.respondWith(responseObject);
+        response = success.calls.mostRecent().args[2];
+      });
+
+      it("getResponseHeader should return the each value", function () {
+        expect(response.getResponseHeader('X-Header1')).toBe('header 1 value');
+        expect(response.getResponseHeader('X-Header2')).toBe('header 2 value');
+        expect(response.getResponseHeader('X-Header3')).toBe('header 3 value');
+      });
+
+      it("getAllResponseHeaders should return all values", function () {
+        expect(response.getAllResponseHeaders()).toBe([
+          "X-Header1: header 1 value",
+          "X-Header2: header 2 value",
+          "X-Header3: header 3 value"
+        ].join("\r\n"));
+      });
+    });
+
+    describe("response with multiple headers of the same name using an array of objects", function () {
+      beforeEach(function () {
+        client = new fakeGlobal.XMLHttpRequest();
+        client.onreadystatechange = onreadystatechange;
+        client.open("GET", "example.com");
+        client.send();
+
+        request = mockAjax.requests.mostRecent();
+        var responseObject = {status: 200, statusText: "OK", responseText: '["foo"]', responseHeaders: [
+          { name: 'X-Header', value: 'header value 1' },
+          { name: 'X-Header', value: 'header value 2' }
+        ]};
+        request.respondWith(responseObject);
+        response = success.calls.mostRecent().args[2];
+      });
+
+      it("getResponseHeader should return all values comma separated", function () {
+        expect(response.getResponseHeader('X-Header')).toBe('header value 1, header value 2');
+      });
+
+      it("getAllResponseHeaders should return all values", function () {
+        expect(response.getAllResponseHeaders()).toBe([
+          "X-Header: header value 1",
+          "X-Header: header value 2"
+        ].join("\r\n"));
+      });
+    });
+
     describe("the content type defaults to application/json", function () {
       beforeEach(function() {
         client = new fakeGlobal.XMLHttpRequest();
         client.onreadystatechange = onreadystatechange;
         client.open("GET", "example.com/someApi");
-        client.setRequestHeader("Content-Type", "application/json")
+        client.setRequestHeader("Content-Type", "application/json");
         client.send();
 
         request = mockAjax.requests.mostRecent();
         response = {status: 200, statusText: "OK", responseText: '{"foo": "valid JSON, dammit."}'};
-        request.response(response);
+        request.respondWith(response);
 
         sharedContext.responseCallback = success;
         sharedContext.status = response.status;
@@ -291,12 +304,12 @@ describe("Jasmine Mock Ajax (for toplevel)", function() {
         client = new fakeGlobal.XMLHttpRequest();
         client.onreadystatechange = onreadystatechange;
         client.open("GET", "example.com/someApi");
-        client.setRequestHeader("Content-Type", "text/plain")
+        client.setRequestHeader("Content-Type", "text/plain");
         client.send();
 
         request = mockAjax.requests.mostRecent();
         response = {status: 0, statusText: "ABORT", responseText: '{"foo": "whoops!"}'};
-        request.response(response);
+        request.respondWith(response);
 
         sharedContext.responseCallback = error;
         sharedContext.status = 0;
@@ -326,12 +339,12 @@ describe("Jasmine Mock Ajax (for toplevel)", function() {
       client = new fakeGlobal.XMLHttpRequest();
       client.onreadystatechange = onreadystatechange;
       client.open("GET", "example.com/someApi");
-      client.setRequestHeader("Content-Type", "text/plain")
+      client.setRequestHeader("Content-Type", "text/plain");
       client.send();
 
       request = mockAjax.requests.mostRecent();
       response = {status: 500, statusText: "SERVER ERROR", contentType: "text/html", responseText: "(._){"};
-      request.response(response);
+      request.respondWith(response);
 
       sharedContext.responseCallback = error;
       sharedContext.status = response.status;
@@ -362,7 +375,7 @@ describe("Jasmine Mock Ajax (for toplevel)", function() {
       client = new fakeGlobal.XMLHttpRequest();
       client.onreadystatechange = onreadystatechange;
       client.open("GET", "example.com/someApi");
-      client.setRequestHeader("Content-Type", "text/plain")
+      client.setRequestHeader("Content-Type", "text/plain");
       client.send();
 
       request = mockAjax.requests.mostRecent();
@@ -407,13 +420,13 @@ function sharedAjaxResponseBehaviorForZepto_Success(context) {
     });
 
     it("should have the expected content type", function() {
-      expect(xhr.getResponseHeader('Content-type')).toEqual(context.contentType);
+      expect(xhr.getResponseHeader('Content-Type')).toEqual(context.contentType);
     });
 
     it("should have the expected response text", function() {
       expect(xhr.responseText).toEqual(context.responseText);
     });
-    
+
     it("should have the expected status text", function() {
       expect(xhr.statusText).toEqual(context.statusText);
     });
@@ -432,13 +445,13 @@ function sharedAjaxResponseBehaviorForZepto_Failure(context) {
     });
 
     it("should have the expected content type", function() {
-      expect(xhr.getResponseHeader('Content-type')).toEqual(context.contentType);
+      expect(xhr.getResponseHeader('Content-Type')).toEqual(context.contentType);
     });
 
     it("should have the expected response text", function() {
       expect(xhr.responseText).toEqual(context.responseText);
     });
-    
+
     it("should have the expected status text", function() {
       expect(xhr.statusText).toEqual(context.statusText);
     });
