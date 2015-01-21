@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/pivotal/jasmine-ajax.png?branch=master)](https://travis-ci.org/pivotal/jasmine-ajax)
+[![Build Status](https://travis-ci.org/jasmine/jasmine-ajax.png?branch=master)](https://travis-ci.org/jasmine/jasmine-ajax)
 
 If you are using the updated version of this library, there is some additional documentation located at [jasmine.github.io](http://jasmine.github.io/2.0/ajax.html) that is up-to-date.
 
@@ -126,7 +126,7 @@ Now that you've defined some test responses and installed the mock, you need to 
 
     describe("on success", function() {
       beforeEach(function() {
-        request.response(TestResponses.search.success);
+        request.respondWith(TestResponses.search.success);
       });
 
 Now for all the specs in this example group, whenever an Ajax response is sent, it will use the `TestResponses.search.success` object defined in your test responses to build the XMLHttpRequest object.
@@ -159,7 +159,7 @@ Putting it all together, you can install the mock, pass some spies as callbacks 
 
       describe("on success", function() {
         beforeEach(function() {
-          request.response(TestResponses.search.success);
+          request.respondWith(TestResponses.search.success);
         });
 
         it("calls onSuccess with an array of Locations", function() {
