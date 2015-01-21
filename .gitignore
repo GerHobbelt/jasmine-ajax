@@ -1,6 +1,7 @@
 .idea/
 .rvmrc
 *.swp
+bower_components
 node_modules
 
 # analyze_github script cache:
